@@ -30,9 +30,8 @@ public class DistributionLock {
             return false;
         }
         // 2.占用锁
-        final boolean lockSuccess = Boolean.TRUE.equals(redisTemplate.opsForValue().setIfAbsent(key, 1L, 10, TimeUnit.SECONDS));
 
-        return lockSuccess;
+        return Boolean.TRUE.equals(redisTemplate.opsForValue().setIfAbsent(key, 1L, 10, TimeUnit.SECONDS));
     }
 
     // 突然机器挂了，unlock没执行

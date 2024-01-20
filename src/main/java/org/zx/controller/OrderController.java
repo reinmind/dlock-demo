@@ -3,20 +3,23 @@ package org.zx.controller;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.*;
 import org.zx.dto.Item;
 import org.zx.dto.ItemInventory;
 import org.zx.dto.OrderDetail;
+import org.zx.mq.MessageProducer;
 import org.zx.util.DistributionLock;
+import org.zx.util.GsonUtil;
 
 import javax.annotation.PostConstruct;
 import javax.annotation.Resource;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.Random;
-import java.util.concurrent.*;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import java.util.concurrent.locks.ReentrantLock;
 
 
@@ -24,6 +27,7 @@ import java.util.concurrent.locks.ReentrantLock;
 @RequestMapping("/order")
 @Slf4j
 public class OrderController {
+    // feign
 
     /**
      * 总商品库存
@@ -37,6 +41,9 @@ public class OrderController {
     @Resource
     DistributionLock distributionLock;
 
+    @Resource
+    MessageProducer messageProducer;
+
     int sucessCount = 0;
 
     int failedCount = 0;
@@ -46,7 +53,7 @@ public class OrderController {
         inventoryMap = Maps.newHashMap();
         final ItemInventory itemInventory = new ItemInventory();
         itemInventory.setId(1L);
-        itemInventory.setStock(1000L);
+        itemInventory.setStock(100000L);
         inventoryMap.put(1L, itemInventory);
         executorService = Executors.newFixedThreadPool(10);
         reentrantLock = new ReentrantLock();
@@ -58,24 +65,28 @@ public class OrderController {
 
             try {
                 final ItemInventory itemInventory = inventoryMap.get(item.getId());
-                if (!distributionLock.tryLock("" + item.getId())) {
-                    return "failed";
-                }
+                reentrantLock.lock();
+//                if (!distributionLock.tryLock("" + item.getId())) {
+//                    return "failed";
+//                }
                 if (itemInventory.getStock() == 0) {
                     return "failed";
                 }
-                Thread.sleep(1L);
                 itemInventory.setStock(itemInventory.getStock() - 1L);
                 inventoryMap.put(item.getId(), itemInventory);
-            } catch (InterruptedException e) {
+            } catch (Exception e) {
                 throw new RuntimeException(e);
             } finally {
+                reentrantLock.unlock();
                 // 释放锁
-                distributionLock.unlock("" + item.getId());
+//                distributionLock.unlock("" + item.getId());
             }
         }
         log.info("{}", inventoryMap.get(1L));
-
+        // rpc 1 3ms
+        // rpc 2 3ms
+        // rpc 3 3ms
+        messageProducer.sendMessage(GsonUtil.toString(orderDetail));
         return "success";
     }
 
@@ -93,7 +104,7 @@ public class OrderController {
         orderDetail.setItemList(items);
         orderDetail.setUserId(8848L);
         List<Future<String>> futures = Lists.newArrayList();
-        for (int i = 0; i < 5000; i++) {
+        for (int i = 0; i < 200000; i++) {
             final Future<String> submit = executorService.submit(() -> this.placeOrder(orderDetail));
             futures.add(submit);
         }
