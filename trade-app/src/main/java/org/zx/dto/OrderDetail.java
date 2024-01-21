@@ -13,4 +13,8 @@ public class OrderDetail {
     String deliveryAddress;
 
     String phoneNum;
+
+    String paymentMethod;
+
+    Long totalPrice;
 }

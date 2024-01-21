@@ -3,6 +3,10 @@ package org.zx.controller;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.dubbo.config.annotation.DubboReference;
+import org.example.facade.PaymentFacade;
+import org.example.vo.RequestDetail;
+import org.example.vo.RequestResult;
 import org.springframework.web.bind.annotation.*;
 import org.zx.dto.Item;
 import org.zx.dto.ItemInventory;
@@ -44,6 +48,9 @@ public class OrderController {
     @Resource
     MessageProducer messageProducer;
 
+    @DubboReference(version = "1.0.0",group = "Dubbo")
+    PaymentFacade paymentFacade;
+
     int sucessCount = 0;
 
     int failedCount = 0;
@@ -59,6 +66,7 @@ public class OrderController {
         reentrantLock = new ReentrantLock();
     }
 
+
     @PostMapping("/place")
     public String placeOrder(@RequestBody OrderDetail orderDetail) {
         for (Item item : orderDetail.getItemList()) {
@@ -72,6 +80,7 @@ public class OrderController {
                 if (itemInventory.getStock() == 0) {
                     return "failed";
                 }
+
                 itemInventory.setStock(itemInventory.getStock() - 1L);
                 inventoryMap.put(item.getId(), itemInventory);
             } catch (Exception e) {
@@ -88,6 +97,27 @@ public class OrderController {
         // rpc 3 3ms
         messageProducer.sendMessage(GsonUtil.toString(orderDetail));
         return "success";
+    }
+
+    //支付流程
+    // 1. 交易: 发起支付请求
+    // 2. 用户: 选择支付方式
+    // 3. 交易: 发送付款信息给三方支付平台
+    // 4. 用户: 在三方支付平台确认支付
+    // 5. 三方支付平台: 发送确认支付消息到交易
+    // 6. 交易: 确认用户支付完成，进行下一步操作(通知卖家给用户发货)
+
+    // seller -> stock
+    // payment -> bank card | alipay | wechat | wallet
+    // logistic -> shunfeng (COD)| yuantong | yunda | jingdong | cainiao 履约完成支付物流费用
+    @PostMapping("/requestPay")
+    public String requestPay(@RequestBody OrderDetail orderDetail){
+        final RequestDetail paymentRequest = RequestDetail.builder()
+                .userId(orderDetail.getUserId()).totalPrice(orderDetail.getTotalPrice())
+                .productName(orderDetail.getItemList().get(0).getName())
+                .build();
+        final RequestResult requestResult = paymentFacade.requestPayment(paymentRequest);
+        return GsonUtil.toString(requestResult);
     }
 
     @GetMapping("/hello")

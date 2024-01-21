@@ -5,7 +5,7 @@ FROM openjdk:8
 WORKDIR /app
 
 # 复制应用程序的 JAR 文件到镜像中
-COPY target/dlock-demo-1.0.jar app.jar
+COPY target/trade-app-1.0.jar app.jar
 
 # 暴露应用程序运行的端口
 EXPOSE 8080
