@@ -1,0 +1,45 @@
+dataSources:
+  ds_0:
+    dataSourceClassName: com.zaxxer.hikari.HikariDataSource
+    driverClassName: com.mysql.cj.jdbc.Driver
+    jdbcUrl: jdbc:mysql://172.29.176.1:3306/e0
+    username: root
+    password: root
+  ds_1:
+    dataSourceClassName: com.zaxxer.hikari.HikariDataSource
+    driverClassName: com.mysql.cj.jdbc.Driver
+    jdbcUrl: jdbc:mysql://172.29.176.1:3306/e1
+    username: root
+    password: root
+
+  # 配置其他数据源
+
+# 规则配置
+rules:
+  - !SHARDING
+    tables:
+      t_order:
+        actualDataNodes: ds_${0..1}.t_order_${0..2}
+        databaseStrategy:
+          standard:
+            shardingColumn: user_id
+            shardingAlgorithmName: database_inline
+        tableStrategy:
+          standard:
+            shardingColumn: user_id
+            shardingAlgorithmName: table_inline
+        keyGenerateStrategy:
+          column: id
+          keyGeneratorName: snowflake
+    keyGenerators:
+      snowflake:
+        type: SNOWFLAKE
+    shardingAlgorithms:
+      table_inline:
+        type: INLINE
+        props:
+          algorithm-expression: t_order_${user_id % 3}
+      database_inline:
+        type: INLINE
+        props:
+          algorithm-expression: ds_${user_id % 2}

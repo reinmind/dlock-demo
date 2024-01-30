@@ -3,15 +3,19 @@ package org.zx.controller;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang.RandomStringUtils;
 import org.apache.dubbo.config.annotation.DubboReference;
 import org.example.facade.PaymentFacade;
 import org.example.vo.RequestDetail;
 import org.example.vo.RequestResult;
 import org.springframework.web.bind.annotation.*;
+import org.zx.dao.OrderMapper;
 import org.zx.dto.Item;
 import org.zx.dto.ItemInventory;
+import org.zx.dto.Order;
 import org.zx.dto.OrderDetail;
 import org.zx.mq.MessageProducer;
+
 import org.zx.util.DistributionLock;
 import org.zx.util.GsonUtil;
 
@@ -20,6 +24,7 @@ import javax.annotation.Resource;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Random;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -50,6 +55,9 @@ public class OrderController {
 
     @DubboReference(version = "1.0.0",group = "Dubbo")
     PaymentFacade paymentFacade;
+
+    @Resource
+    OrderMapper orderMapper;
 
     int sucessCount = 0;
 
@@ -91,11 +99,16 @@ public class OrderController {
 //                distributionLock.unlock("" + item.getId());
             }
         }
+        final Order order = new Order();
+        order.setUserId(orderDetail.getUserId());
+        order.setActualPaymentPrice(10L);
+        order.setOrderId(RandomStringUtils.randomAlphabetic(16));
+        orderMapper.insert(order);
         log.info("{}", inventoryMap.get(1L));
         // rpc 1 3ms
         // rpc 2 3ms
         // rpc 3 3ms
-        messageProducer.sendMessage(GsonUtil.toString(orderDetail));
+//        messageProducer.sendMessage(GsonUtil.toString(orderDetail));
         return "success";
     }
 
